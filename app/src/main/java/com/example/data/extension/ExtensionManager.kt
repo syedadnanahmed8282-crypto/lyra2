@@ -5,6 +5,8 @@ import android.net.Uri
 import com.example.model.Song
 import com.squareup.duktape.Duktape
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -1087,13 +1089,18 @@ class ExtensionManager(private val context: Context) {
     suspend fun resolveFallbackSongStreamUrl(title: String, artist: String): String? = withContext(Dispatchers.IO) {
         val cleanTitle = title.replace(Regex("(?i)\\(.*?\\)|\\[.*?\\]|official|video|audio|lyric|lyrics|full"), "").trim()
         val cleanArtist = artist.replace(Regex("(?i)official|vevo|channel|topic"), "").trim()
-        val searchQ = "$cleanTitle $cleanArtist".trim().ifBlank { title.ifBlank { "Top Music Hits" } }
+        val searchQ = "$cleanTitle $cleanArtist".trim()
+
+        if (cleanTitle.length < 2) return@withContext null
 
         try {
             val iTunesResults = searchITunesMusic(searchQ)
-            val firstTrack = iTunesResults.firstOrNull { it.streamUrl.startsWith("http") }
-            if (firstTrack != null) {
-                return@withContext firstTrack.streamUrl
+            val matched = iTunesResults.firstOrNull { song ->
+                song.streamUrl.startsWith("http") && 
+                (song.title.contains(cleanTitle, ignoreCase = true) || cleanTitle.contains(song.title, ignoreCase = true))
+            }
+            if (matched != null) {
+                return@withContext matched.streamUrl
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -1101,24 +1108,18 @@ class ExtensionManager(private val context: Context) {
 
         try {
             val jamendoResults = searchJamendoMusic(searchQ)
-            val firstTrack = jamendoResults.firstOrNull { it.streamUrl.startsWith("http") }
-            if (firstTrack != null) {
-                return@withContext firstTrack.streamUrl
+            val matched = jamendoResults.firstOrNull { song ->
+                song.streamUrl.startsWith("http") && 
+                (song.title.contains(cleanTitle, ignoreCase = true) || cleanTitle.contains(song.title, ignoreCase = true))
+            }
+            if (matched != null) {
+                return@withContext matched.streamUrl
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
 
-        val sampleStreams = listOf(
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3",
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-2.mp3",
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-3.mp3",
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-4.mp3",
-            "https://www.soundhelix.com/examples/mp3/SoundHelix-Song-5.mp3"
-        )
-        val hash = (title.hashCode() + artist.hashCode()).let { if (it < 0) -it else it }
-        val chosenStream = sampleStreams[hash % sampleStreams.size]
-        return@withContext chosenStream
+        return@withContext null
     }
 
     private fun executeFallbackSearch(plugin: ExtensionPlugin, query: String): List<OnlineSong> {
@@ -1405,71 +1406,16 @@ class ExtensionManager(private val context: Context) {
     }
 
     suspend fun fetchYouTubeAudioStreamUrl(videoId: String): String? = withContext(Dispatchers.IO) {
-        fetchYouTubeAudioStreamUrlSync(videoId)
+        if (videoId.isBlank()) return@withContext null
+        fetchYouTubeAudioStreamUrlConcurrent(videoId)
     }
 
-    private fun fetchYouTubeAudioStreamUrlSync(videoId: String): String? {
+    private suspend fun fetchYouTubeAudioStreamUrlConcurrent(videoId: String): String? = kotlinx.coroutines.coroutineScope {
         val fastClient = okHttpClient.newBuilder()
-            .connectTimeout(6, TimeUnit.SECONDS)
-            .readTimeout(6, TimeUnit.SECONDS)
+            .connectTimeout(3, TimeUnit.SECONDS)
+            .readTimeout(3, TimeUnit.SECONDS)
             .followRedirects(true)
             .build()
-
-        // Strategy 1: Direct YouTube InnerTube Player API (iOS, ANDROID_VR, WEB_EMBEDDED_PLAYER clients)
-        val clients = listOf(
-            JSONObject().apply {
-                put("videoId", videoId)
-                put("context", JSONObject().put("client", JSONObject().apply {
-                    put("clientName", "IOS")
-                    put("clientVersion", "19.29.1")
-                    put("deviceModel", "iPhone14,3")
-                    put("osName", "iPhone")
-                    put("osVersion", "17.5.1.21F90")
-                    put("hl", "en")
-                    put("gl", "US")
-                }))
-            },
-            JSONObject().apply {
-                put("videoId", videoId)
-                put("context", JSONObject().put("client", JSONObject().apply {
-                    put("clientName", "ANDROID_VR")
-                    put("clientVersion", "1.56.21")
-                    put("deviceModel", "Oculus Quest 2")
-                    put("osName", "Android")
-                    put("osVersion", "10")
-                    put("hl", "en")
-                    put("gl", "US")
-                }))
-            },
-            JSONObject().apply {
-                put("videoId", videoId)
-                put("context", JSONObject().put("client", JSONObject().apply {
-                    put("clientName", "WEB_EMBEDDED_PLAYER")
-                    put("clientVersion", "1.20240826.01.00")
-                    put("hl", "en")
-                    put("gl", "US")
-                }))
-            },
-            JSONObject().apply {
-                put("videoId", videoId)
-                put("context", JSONObject().put("client", JSONObject().apply {
-                    put("clientName", "TVHTML5_SIMPLY_EMBEDDED_PLAYER")
-                    put("clientVersion", "2.0")
-                    put("hl", "en")
-                    put("gl", "US")
-                }))
-            },
-            JSONObject().apply {
-                put("videoId", videoId)
-                put("context", JSONObject().put("client", JSONObject().apply {
-                    put("clientName", "ANDROID_MUSIC")
-                    put("clientVersion", "7.02.52")
-                    put("androidSdkVersion", 33)
-                    put("hl", "en")
-                    put("gl", "US")
-                }))
-            }
-        )
 
         fun parseUrlFromFormat(fmt: JSONObject): String? {
             var rawUrl = fmt.optString("url")
@@ -1497,169 +1443,175 @@ class ExtensionManager(private val context: Context) {
             return if (rawUrl.startsWith("http://") || rawUrl.startsWith("https://")) rawUrl else null
         }
 
-        for (payload in clients) {
+        fun extractAudioUrlFromInnerTubeJson(resStr: String): String? {
+            if (!resStr.startsWith("{")) return null
             try {
-                val body = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
-                val req = Request.Builder()
-                    .url("https://www.youtube.com/youtubei/v1/player")
-                    .header("User-Agent", "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1")
-                    .header("Accept", "application/json")
-                    .post(body)
-                    .build()
+                val jsonObj = JSONObject(resStr)
+                val streamingData = jsonObj.optJSONObject("streamingData") ?: return null
 
-                fastClient.newCall(req).execute().use { resp ->
-                    val resStr = resp.body?.string() ?: ""
-                    if (resStr.startsWith("{")) {
-                        val jsonObj = JSONObject(resStr)
-                        val streamingData = jsonObj.optJSONObject("streamingData")
-                        if (streamingData != null) {
-                            val adaptiveFormats = streamingData.optJSONArray("adaptiveFormats")
+                val hlsUrl = streamingData.optString("hlsManifestUrl")
+                if (hlsUrl.startsWith("http")) return hlsUrl
+
+                val adaptiveFormats = streamingData.optJSONArray("adaptiveFormats")
+                if (adaptiveFormats != null && adaptiveFormats.length() > 0) {
+                    var bestUrl: String? = null
+                    var maxBitrate = 0
+                    for (i in 0 until adaptiveFormats.length()) {
+                        val fmt = adaptiveFormats.getJSONObject(i)
+                        val mimeType = fmt.optString("mimeType", "")
+                        if (mimeType.contains("audio/")) {
+                            val url = parseUrlFromFormat(fmt)
+                            val bitrate = fmt.optInt("bitrate", 0)
+                            if (url != null) {
+                                if (bitrate > maxBitrate || bestUrl == null) {
+                                    bestUrl = url
+                                    maxBitrate = bitrate
+                                }
+                            }
+                        }
+                    }
+                    if (bestUrl != null) return bestUrl
+                }
+
+                val formats = streamingData.optJSONArray("formats")
+                if (formats != null && formats.length() > 0) {
+                    for (i in 0 until formats.length()) {
+                        val fmt = formats.getJSONObject(i)
+                        val url = parseUrlFromFormat(fmt)
+                        if (url != null) return url
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+            return null
+        }
+
+        val clients = listOf(
+            JSONObject().apply {
+                put("videoId", videoId)
+                put("context", JSONObject().put("client", JSONObject().apply {
+                    put("clientName", "ANDROID_VR")
+                    put("clientVersion", "1.56.21")
+                    put("deviceModel", "Oculus Quest 2")
+                    put("osName", "Android")
+                    put("osVersion", "10")
+                    put("hl", "en")
+                    put("gl", "US")
+                }))
+            },
+            JSONObject().apply {
+                put("videoId", videoId)
+                put("context", JSONObject().put("client", JSONObject().apply {
+                    put("clientName", "IOS")
+                    put("clientVersion", "19.29.1")
+                    put("deviceModel", "iPhone14,3")
+                    put("osName", "iPhone")
+                    put("osVersion", "17.5.1.21F90")
+                    put("hl", "en")
+                    put("gl", "US")
+                }))
+            },
+            JSONObject().apply {
+                put("videoId", videoId)
+                put("context", JSONObject().put("client", JSONObject().apply {
+                    put("clientName", "TVHTML5_SIMPLY_EMBEDDED_PLAYER")
+                    put("clientVersion", "2.0")
+                    put("hl", "en")
+                    put("gl", "US")
+                }))
+            }
+        )
+
+        val externalEndpoints = listOf(
+            "https://pipedapi.drgns.space/streams/$videoId",
+            "https://pipedapi.mha.fi/streams/$videoId",
+            "https://inv.tux.pizza/api/v1/videos/$videoId",
+            "https://yewtu.be/api/v1/videos/$videoId"
+        )
+
+        val channel = kotlinx.coroutines.channels.Channel<String>(clients.size + externalEndpoints.size)
+
+        for (payload in clients) {
+            launch(Dispatchers.IO) {
+                try {
+                    val body = payload.toString().toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())
+                    val req = Request.Builder()
+                        .url("https://www.youtube.com/youtubei/v1/player")
+                        .header("User-Agent", "Mozilla/5.0 (Android; Mobile)")
+                        .header("Accept", "application/json")
+                        .post(body)
+                        .build()
+
+                    fastClient.newCall(req).execute().use { resp ->
+                        val resStr = resp.body?.string() ?: ""
+                        val url = extractAudioUrlFromInnerTubeJson(resStr)
+                        if (!url.isNullOrBlank() && url.startsWith("http")) {
+                            channel.trySend(url)
+                        }
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+        }
+
+        for (ep in externalEndpoints) {
+            launch(Dispatchers.IO) {
+                try {
+                    val req = Request.Builder()
+                        .url(ep)
+                        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+                        .build()
+
+                    fastClient.newCall(req).execute().use { resp ->
+                        val resStr = resp.body?.string() ?: ""
+                        if (resStr.startsWith("{")) {
+                            val obj = JSONObject(resStr)
+                            val audioStreams = obj.optJSONArray("audioStreams")
+                            if (audioStreams != null && audioStreams.length() > 0) {
+                                val u = audioStreams.getJSONObject(0).optString("url")
+                                if (u.startsWith("http")) {
+                                    channel.trySend(u)
+                                    return@launch
+                                }
+                            }
+                            val adaptiveFormats = obj.optJSONArray("adaptiveFormats")
                             if (adaptiveFormats != null && adaptiveFormats.length() > 0) {
-                                var bestUrl: String? = null
-                                var maxBitrate = 0
                                 for (i in 0 until adaptiveFormats.length()) {
                                     val fmt = adaptiveFormats.getJSONObject(i)
-                                    val mimeType = fmt.optString("mimeType", "")
-                                    if (mimeType.contains("audio/")) {
-                                        val url = parseUrlFromFormat(fmt)
-                                        val bitrate = fmt.optInt("bitrate", 0)
-                                        if (url != null) {
-                                            if (bitrate > maxBitrate || bestUrl == null) {
-                                                bestUrl = url
-                                                maxBitrate = bitrate
-                                            }
+                                    val mime = fmt.optString("type", fmt.optString("mimeType", ""))
+                                    if (mime.contains("audio")) {
+                                        val u = fmt.optString("url")
+                                        if (u.startsWith("http")) {
+                                            channel.trySend(u)
+                                            return@launch
                                         }
                                     }
                                 }
-                                if (bestUrl != null) return bestUrl
-                            }
-
-                            val formats = streamingData.optJSONArray("formats")
-                            if (formats != null && formats.length() > 0) {
-                                for (i in 0 until formats.length()) {
-                                    val fmt = formats.getJSONObject(i)
-                                    val url = parseUrlFromFormat(fmt)
-                                    if (url != null) {
-                                        return url
-                                    }
-                                }
                             }
                         }
                     }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
 
-        // Strategy 2: Active Invidious Endpoints fallback
-        val invidiousEndpoints = listOf(
-            "https://yewtu.be/api/v1/videos/$videoId",
-            "https://inv.tux.pizza/api/v1/videos/$videoId",
-            "https://invidious.nerqv.ps/api/v1/videos/$videoId",
-            "https://invidious.no-nerd.com/api/v1/videos/$videoId",
-            "https://invidious.drgns.space/api/v1/videos/$videoId",
-            "https://iv.melmac.space/api/v1/videos/$videoId",
-            "https://inv.nadeko.net/api/v1/videos/$videoId"
-        )
+        var foundUrl: String? = null
+        val totalTasks = clients.size + externalEndpoints.size
 
-        for (endpoint in invidiousEndpoints) {
-            try {
-                val req = Request.Builder()
-                    .url(endpoint)
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                    .build()
-                fastClient.newCall(req).execute().use { resp ->
-                    val bodyStr = resp.body?.string() ?: ""
-                    if (bodyStr.isNotBlank() && bodyStr.startsWith("{")) {
-                        val obj = JSONObject(bodyStr)
-                        val adaptiveFormats = obj.optJSONArray("adaptiveFormats")
-                        if (adaptiveFormats != null) {
-                            for (i in 0 until adaptiveFormats.length()) {
-                                val fmt = adaptiveFormats.getJSONObject(i)
-                                val mime = fmt.optString("type", fmt.optString("mimeType", ""))
-                                if (mime.contains("audio")) {
-                                    val url = fmt.optString("url")
-                                    if (url.startsWith("http")) return url
-                                }
-                            }
-                        }
-                    }
+        kotlinx.coroutines.withTimeoutOrNull(3500L) {
+            for (i in 0 until totalTasks) {
+                val received = channel.receiveCatching().getOrNull()
+                if (!received.isNullOrBlank()) {
+                    foundUrl = received
+                    break
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
 
-        // Strategy 3: Active Piped Endpoints fallback
-        val pipedEndpoints = listOf(
-            "https://pipedapi.drgns.space/streams/$videoId",
-            "https://pipedapi.mha.fi/streams/$videoId",
-            "https://piped-api.garudalinux.org/streams/$videoId",
-            "https://pipedapi.adminforge.de/streams/$videoId",
-            "https://pipedapi.astral.ac/streams/$videoId",
-            "https://pipedapi.smnz.de/streams/$videoId"
-        )
-
-        for (endpoint in pipedEndpoints) {
-            try {
-                val req = Request.Builder()
-                    .url(endpoint)
-                    .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
-                    .build()
-                fastClient.newCall(req).execute().use { resp ->
-                    val bodyStr = resp.body?.string() ?: ""
-                    if (bodyStr.isNotBlank() && bodyStr.startsWith("{")) {
-                        val obj = JSONObject(bodyStr)
-                        val audioStreams = obj.optJSONArray("audioStreams")
-                        if (audioStreams != null && audioStreams.length() > 0) {
-                            for (i in 0 until audioStreams.length()) {
-                                val streamObj = audioStreams.getJSONObject(i)
-                                val url = streamObj.optString("url")
-                                if (url.startsWith("http://") || url.startsWith("https://")) {
-                                    return url
-                                }
-                            }
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        // Strategy 4: Cobalt API
-        val cobaltAPIs = listOf("https://api.cobalt.tools/", "https://cobalt-api.kwippy.app/")
-        for (cobaltUrl in cobaltAPIs) {
-            try {
-                val cobaltJson = JSONObject().apply {
-                    put("url", "https://www.youtube.com/watch?v=$videoId")
-                    put("downloadMode", "audio")
-                    put("audioFormat", "mp3")
-                }
-                val body = cobaltJson.toString().toRequestBody("application/json".toMediaTypeOrNull())
-                val req = Request.Builder()
-                    .url(cobaltUrl)
-                    .header("User-Agent", "Mozilla/5.0")
-                    .header("Accept", "application/json")
-                    .post(body)
-                    .build()
-                fastClient.newCall(req).execute().use { resp ->
-                    val resStr = resp.body?.string() ?: ""
-                    if (resStr.startsWith("{")) {
-                        val resObj = JSONObject(resStr)
-                        val streamUrl = resObj.optString("url")
-                        if (streamUrl.startsWith("http")) {
-                            return streamUrl
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
-
-        return null
+        return@coroutineScope foundUrl
     }
 
     private fun createDefaultYouTubePlugin(): ExtensionPlugin {
