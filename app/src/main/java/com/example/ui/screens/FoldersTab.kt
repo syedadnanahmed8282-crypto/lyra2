@@ -19,26 +19,25 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.graphics.Color
 import com.example.model.Folder
 import com.example.model.Song
 import com.example.ui.components.FolderItem
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VibrantPurple
+import com.example.ui.theme.SpotifyGreen
+import com.example.ui.theme.SpotifyTextPrimary
+import com.example.ui.theme.SpotifyTextSecondary
 
 @Composable
 fun FoldersTab(
     folders: List<Folder>,
     allSongs: List<Song>,
     onFolderClick: (Folder, List<Song>) -> Unit,
-    themeColor: Color = VibrantPurple,
+    themeColor: Color = SpotifyGreen,
     modifier: Modifier = Modifier
 ) {
-    val isMidnightDark = themeColor == Color(0xFF0A1128)
     if (folders.isEmpty()) {
         Box(
             modifier = modifier
@@ -50,20 +49,20 @@ fun FoldersTab(
                 Icon(
                     imageVector = Icons.Default.Folder,
                     contentDescription = null,
-                    tint = themeColor.copy(alpha = 0.5f),
+                    tint = SpotifyGreen,
                     modifier = Modifier.size(64.dp)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "No Folders Found",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = if (isMidnightDark) Color.White else TextPrimary
+                    color = SpotifyTextPrimary
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "No music folders detected.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (isMidnightDark) Color(0xFFA0A5B5) else TextSecondary
+                    color = SpotifyTextSecondary
                 )
             }
         }
@@ -79,7 +78,7 @@ fun FoldersTab(
                 FolderItem(
                     folder = folder,
                     onFolderClick = { onFolderClick(folder, folderSongs) },
-                    themeColor = themeColor,
+                    themeColor = SpotifyGreen,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp)

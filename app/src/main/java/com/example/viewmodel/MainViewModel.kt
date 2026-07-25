@@ -33,7 +33,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val isSearchingOnline = extensionManager.isSearching
     val extensionAccounts = extensionManager.accountsMap
 
-    private val _selectedExtensionMode = MutableStateFlow<String>("ALL")
+    private val prefs = getApplication<Application>().getSharedPreferences("ext_settings_pref", android.content.Context.MODE_PRIVATE)
+    private val initialMode = prefs.getString("selected_ext_mode", "ALL") ?: "ALL"
+
+    private val _selectedExtensionMode = MutableStateFlow<String>(initialMode)
     val selectedExtensionMode: StateFlow<String> = _selectedExtensionMode.asStateFlow()
 
     private val _themeColor = MutableStateFlow(VibrantPurple)
@@ -45,6 +48,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setSelectedExtensionMode(mode: String) {
         _selectedExtensionMode.value = mode
+        prefs.edit().putString("selected_ext_mode", mode).apply()
         if (mode != "LOCAL") {
             val query = searchQuery.value.ifBlank { "music" }
             viewModelScope.launch {
@@ -182,8 +186,73 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _showCreatePlaylistDialog = MutableStateFlow(false)
     val showCreatePlaylistDialog: StateFlow<Boolean> = _showCreatePlaylistDialog.asStateFlow()
 
+    data class MediaDetailState(
+        val type: String,
+        val title: String,
+        val subtitle: String,
+        val artworkUri: android.net.Uri? = null,
+        val songs: List<Song> = emptyList(),
+        val isFetchingOnline: Boolean = false
+    )
+
+    private val _mediaDetailState = MutableStateFlow<MediaDetailState?>(null)
+    val mediaDetailState: StateFlow<MediaDetailState?> = _mediaDetailState.asStateFlow()
+
+    fun openMediaDetail(
+        type: String,
+        title: String,
+        subtitle: String,
+        artworkUri: android.net.Uri? = null,
+        initialSongs: List<Song>
+    ) {
+        val cleanSongs = initialSongs.ifEmpty {
+            songs.value.filter {
+                it.album.equals(title, ignoreCase = true) ||
+                        it.folderName.equals(title, ignoreCase = true) ||
+                        it.artist.equals(title, ignoreCase = true) ||
+                        it.title.contains(title, ignoreCase = true)
+            }
+        }
+        _mediaDetailState.value = MediaDetailState(
+            type = type,
+            title = title,
+            subtitle = subtitle,
+            artworkUri = artworkUri,
+            songs = cleanSongs,
+            isFetchingOnline = cleanSongs.isEmpty()
+        )
+
+        if (cleanSongs.isEmpty()) {
+            fetchOnlineTracksForDetail(title)
+        }
+    }
+
+    fun closeMediaDetail() {
+        _mediaDetailState.value = null
+    }
+
+    fun fetchOnlineTracksForDetail(queryTitle: String) {
+        val currentState = _mediaDetailState.value ?: return
+        _mediaDetailState.value = currentState.copy(isFetchingOnline = true)
+        viewModelScope.launch {
+            val fetchedOnline: List<com.example.data.extension.OnlineSong> = extensionManager.searchOnlineSongs(queryTitle, _selectedExtensionMode.value)
+            val convertedSongs: List<Song> = fetchedOnline.map { onlineSong -> onlineSong.toSong() }
+            val existing: List<Song> = _mediaDetailState.value?.songs ?: emptyList()
+            val combined: List<Song> = (existing + convertedSongs).distinctBy { song -> song.id }
+            _mediaDetailState.value = _mediaDetailState.value?.copy(
+                songs = combined,
+                isFetchingOnline = false
+            )
+        }
+    }
+
     init {
         refreshMusicLibrary()
+        if (initialMode != "LOCAL") {
+            viewModelScope.launch {
+                extensionManager.searchOnlineSongs("music", initialMode)
+            }
+        }
     }
 
     fun setPermissionGranted(granted: Boolean) {

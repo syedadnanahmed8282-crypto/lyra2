@@ -1,7 +1,9 @@
 package com.example.ui.components
 
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,42 +13,37 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.MusicNote
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.model.Song
-import com.example.ui.theme.PureWhite
-import com.example.ui.theme.TextDarkPrimary
-import com.example.ui.theme.TextDarkSecondary
-import com.example.ui.theme.VibrantPurple
-
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.material.icons.filled.MusicNote
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
 import coil.compose.AsyncImage
+import com.example.model.Song
+import com.example.ui.theme.SpotifyCardHover
+import com.example.ui.theme.SpotifyGreen
+import com.example.ui.theme.SpotifyTextPrimary
+import com.example.ui.theme.SpotifyTextSecondary
 
 @Composable
 fun SongItem(
@@ -54,285 +51,141 @@ fun SongItem(
     isPlayingCurrent: Boolean,
     isPlaying: Boolean = true,
     isLoading: Boolean = false,
-    themeColor: Color = VibrantPurple,
+    themeColor: Color = SpotifyGreen,
     onSongClick: () -> Unit,
     onToggleFavorite: () -> Unit,
     onPlayPauseToggle: () -> Unit = onSongClick,
     onAddToPlaylist: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    val isMidnightDark = themeColor == Color(0xFF0A1128)
-    val inactiveTitleColor = if (isMidnightDark) Color.White else TextDarkPrimary
-    val inactiveSubtitleColor = if (isMidnightDark) Color(0xFFA0A5B5) else TextDarkSecondary
-    val buttonBgColor = if (isMidnightDark) Color.Black else PureWhite
+    val titleColor = if (isPlayingCurrent) SpotifyGreen else SpotifyTextPrimary
+    val itemBg = if (isPlayingCurrent) SpotifyCardHover else Color.Transparent
 
-    if (isPlayingCurrent) {
-        // Active Playing Song Top Card (Dynamic Theme Color Container)
-        Surface(
-            shape = RoundedCornerShape(22.dp),
-            color = themeColor,
-            shadowElevation = 6.dp,
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = 6.dp, horizontal = 4.dp)
-                .clip(RoundedCornerShape(22.dp))
-                .clickable { onSongClick() }
-                .testTag("song_item_${song.id}")
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(itemBg)
+            .clickable { onSongClick() }
+            .padding(horizontal = 8.dp, vertical = 8.dp)
+            .testTag("song_item_${song.id}"),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Thumbnail Image
+        Box(
+            modifier = Modifier
+                .size(48.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color(0xFF282828)),
+            contentAlignment = Alignment.Center
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Left Song Artwork Thumbnail
+            if (song.demoDrawableRes != null) {
+                Image(
+                    painter = painterResource(id = song.demoDrawableRes),
+                    contentDescription = "Thumbnail",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else if (song.albumArtUri != null) {
+                AsyncImage(
+                    model = song.albumArtUri,
+                    contentDescription = "Thumbnail",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.MusicNote,
+                    contentDescription = null,
+                    tint = if (isPlayingCurrent) SpotifyGreen else SpotifyTextSecondary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            if (isPlayingCurrent) {
                 Box(
                     modifier = Modifier
-                        .size(48.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0x33FFFFFF)),
+                        .fillMaxSize()
+                        .background(Color(0x80000000)),
                     contentAlignment = Alignment.Center
                 ) {
-                    if (song.demoDrawableRes != null) {
-                        Image(
-                            painter = painterResource(id = song.demoDrawableRes),
-                            contentDescription = "Thumbnail",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else if (song.albumArtUri != null) {
-                        AsyncImage(
-                            model = song.albumArtUri,
-                            contentDescription = "Thumbnail",
-                            contentScale = ContentScale.Crop,
-                            modifier = Modifier.fillMaxSize()
+                    if (isLoading) {
+                        CircularProgressIndicator(
+                            color = SpotifyGreen,
+                            strokeWidth = 2.5.dp,
+                            modifier = Modifier.size(22.dp)
                         )
                     } else {
                         Icon(
-                            imageVector = Icons.Default.MusicNote,
-                            contentDescription = null,
-                            tint = PureWhite,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                // Left 3D Circular White Button with Pause / Play / Loading Icon
-                Surface(
-                    shape = CircleShape,
-                    color = buttonBgColor,
-                    shadowElevation = 6.dp,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                ) {
-                    IconButton(
-                        onClick = { onPlayPauseToggle() },
-                        modifier = Modifier.fillMaxSize()
-                    ) {
-                        if (isLoading) {
-                            CircularProgressIndicator(
-                                color = themeColor,
-                                strokeWidth = 2.5.dp,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        } else {
-                            Icon(
-                                imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
-                                contentDescription = if (isPlaying) "Pause" else "Play",
-                                tint = themeColor,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Center Song Info (White Text)
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = song.title,
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 15.sp
-                        ),
-                        color = PureWhite,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-
-                    Spacer(modifier = Modifier.height(2.dp))
-
-                    Text(
-                        text = "${song.artist} • ${song.album}",
-                        style = MaterialTheme.typography.bodyMedium.copy(
-                            fontWeight = FontWeight.Medium,
-                            fontSize = 12.sp
-                        ),
-                        color = Color(0xDDFFFFFF),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(10.dp))
-
-                // Right 3D Circular White Button with Heart Icon
-                Surface(
-                    shape = CircleShape,
-                    color = buttonBgColor,
-                    shadowElevation = 6.dp,
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                ) {
-                    IconButton(
-                        onClick = onToggleFavorite,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .testTag("favorite_button_${song.id}")
-                    ) {
-                        Icon(
-                            imageVector = if (song.isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = "Favorite",
-                            tint = if (song.isFavorite) Color(0xFFFF4081) else themeColor,
-                            modifier = Modifier.size(20.dp)
+                            imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                            contentDescription = if (isPlaying) "Pause" else "Play",
+                            tint = SpotifyGreen,
+                            modifier = Modifier.size(26.dp)
                         )
                     }
                 }
             }
         }
-    } else {
-        // Inactive / Regular Song Item (With Artwork & Soft 3D Circular Play & Heart Button)
-        Row(
-            modifier = modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp, horizontal = 4.dp)
-                .clip(RoundedCornerShape(18.dp))
-                .clickable { onSongClick() }
-                .padding(horizontal = 8.dp, vertical = 6.dp)
-                .testTag("song_item_${song.id}"),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        // Song Title & Artist
+        Column(
+            modifier = Modifier.weight(1f)
         ) {
-            // Song Thumbnail Image
-            Box(
-                modifier = Modifier
-                    .size(46.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (isMidnightDark) Color(0xFF161F38) else Color(0xFFE8ECF5)),
-                contentAlignment = Alignment.Center
-            ) {
-                if (song.demoDrawableRes != null) {
-                    Image(
-                        painter = painterResource(id = song.demoDrawableRes),
-                        contentDescription = "Thumbnail",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else if (song.albumArtUri != null) {
-                    AsyncImage(
-                        model = song.albumArtUri,
-                        contentDescription = "Thumbnail",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
-                    )
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.MusicNote,
-                        contentDescription = null,
-                        tint = themeColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
+            Text(
+                text = song.title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = if (isPlayingCurrent) FontWeight.Bold else FontWeight.SemiBold,
+                    fontSize = 15.sp
+                ),
+                color = titleColor,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
 
-            Spacer(modifier = Modifier.width(10.dp))
+            Spacer(modifier = Modifier.height(2.dp))
 
-            // Left 3D Circular White Button with Play Icon
-            Surface(
-                shape = CircleShape,
-                color = buttonBgColor,
-                shadowElevation = 4.dp,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-            ) {
-                IconButton(
-                    onClick = onSongClick,
-                    modifier = Modifier.fillMaxSize()
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.PlayArrow,
-                        contentDescription = "Play",
-                        tint = themeColor,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
+            Text(
+                text = "${song.artist} • ${song.album}",
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    fontWeight = FontWeight.Normal,
+                    fontSize = 12.sp
+                ),
+                color = SpotifyTextSecondary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
 
-            Spacer(modifier = Modifier.width(12.dp))
+        Spacer(modifier = Modifier.width(8.dp))
 
-            // Center Song Title & Subtitle Info (Dark Text)
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 15.sp
-                    ),
-                    color = inactiveTitleColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+        // Spotify Green Favorite Heart Button
+        IconButton(
+            onClick = onToggleFavorite,
+            modifier = Modifier
+                .size(36.dp)
+                .testTag("favorite_button_${song.id}")
+        ) {
+            Icon(
+                imageVector = if (song.isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                contentDescription = "Favorite",
+                tint = if (song.isFavorite) SpotifyGreen else SpotifyTextSecondary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
 
-                Spacer(modifier = Modifier.height(2.dp))
-
-                Text(
-                    text = "${song.artist} • ${song.album}",
-                    style = MaterialTheme.typography.bodyMedium.copy(
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 12.sp
-                    ),
-                    color = inactiveSubtitleColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            // Right 3D Circular White Button with Heart Icon
-            Surface(
-                shape = CircleShape,
-                color = buttonBgColor,
-                shadowElevation = 4.dp,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-            ) {
-                IconButton(
-                    onClick = onToggleFavorite,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("favorite_button_${song.id}")
-                ) {
-                    Icon(
-                        imageVector = if (song.isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (song.isFavorite) Color(0xFFFF4081) else themeColor,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
+        // Options / Add to Playlist
+        IconButton(
+            onClick = onAddToPlaylist,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = "Options",
+                tint = SpotifyTextSecondary,
+                modifier = Modifier.size(20.dp)
+            )
         }
     }
 }

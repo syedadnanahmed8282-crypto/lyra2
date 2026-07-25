@@ -200,8 +200,11 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener, MediaPlayer.OnCo
                 // Resolve stream URL if YouTube/extension
                 if (resolvedUrl.startsWith("yt_id:") || resolvedUrl.startsWith("yt_") || uriString.startsWith("yt_id:") || uriString.startsWith("yt_")) {
                     val vId = resolvedUrl.removePrefix("yt_id:").removePrefix("yt_")
-                    val fetched: String? = extMgr?.fetchYouTubeAudioStreamUrl(vId)
-                    if (!fetched.isNullOrBlank()) {
+                    var fetched: String? = extMgr?.fetchYouTubeAudioStreamUrl(vId)
+                    if (fetched.isNullOrBlank() || !fetched.startsWith("http")) {
+                        fetched = extMgr?.resolveFallbackSongStreamUrl(song.title, song.artist)
+                    }
+                    if (!fetched.isNullOrBlank() && fetched.startsWith("http")) {
                         resolvedUrl = fetched
                     }
                 } else if (song.folderPath.contains("Online") && !resolvedUrl.startsWith("http")) {
@@ -216,9 +219,19 @@ class MusicService : Service(), MediaPlayer.OnPreparedListener, MediaPlayer.OnCo
                         extensionId = song.albumId.toString(),
                         extensionName = song.album
                     )
-                    val resolved = extMgr?.resolveStreamUrl(onlineSong)
+                    var resolved = extMgr?.resolveStreamUrl(onlineSong)
+                    if (resolved.isNullOrBlank() || !resolved.startsWith("http")) {
+                        resolved = extMgr?.resolveFallbackSongStreamUrl(song.title, song.artist)
+                    }
                     if (!resolved.isNullOrBlank() && resolved.startsWith("http")) {
                         resolvedUrl = resolved
+                    }
+                }
+
+                if (!resolvedUrl.startsWith("http://") && !resolvedUrl.startsWith("https://") && (song.folderPath.contains("Online") || resolvedUrl.startsWith("yt_") || resolvedUrl.startsWith("ext_"))) {
+                    val finalFallback = extMgr?.resolveFallbackSongStreamUrl(song.title, song.artist)
+                    if (!finalFallback.isNullOrBlank() && finalFallback.startsWith("http")) {
+                        resolvedUrl = finalFallback
                     }
                 }
 

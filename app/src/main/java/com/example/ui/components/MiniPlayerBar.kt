@@ -1,6 +1,5 @@
 package com.example.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -22,6 +21,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -41,14 +41,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.model.Song
-import com.example.ui.theme.IceWhiteCard
-import com.example.ui.theme.PureWhite
-import com.example.ui.theme.SliderTrackColor
-import com.example.ui.theme.TextDarkPrimary
-import com.example.ui.theme.TextDarkSecondary
-import com.example.ui.theme.VibrantPurple
-
-import androidx.compose.material3.CircularProgressIndicator
+import com.example.ui.theme.SpotifyCardHover
+import com.example.ui.theme.SpotifyGreen
+import com.example.ui.theme.SpotifyTextPrimary
+import com.example.ui.theme.SpotifyTextSecondary
 
 @Composable
 fun MiniPlayerBar(
@@ -57,7 +53,7 @@ fun MiniPlayerBar(
     isLoading: Boolean = false,
     currentPositionMs: Long,
     durationMs: Long,
-    themeColor: Color = VibrantPurple,
+    themeColor: Color = SpotifyGreen,
     onBarClick: () -> Unit,
     onPlayPauseClick: () -> Unit,
     onNextClick: () -> Unit,
@@ -67,48 +63,42 @@ fun MiniPlayerBar(
 
     val progress = if (durationMs > 0) (currentPositionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
 
-    val isMidnightDark = themeColor == Color(0xFF0A1128)
-    val cardBg = if (isMidnightDark) Color.Black else PureWhite
-    val titleColor = if (isMidnightDark) Color.White else TextDarkPrimary
-    val artistColor = if (isMidnightDark) Color(0xFFA0A5B5) else TextDarkSecondary
-
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(24.dp))
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+            .clip(RoundedCornerShape(8.dp))
             .clickable { onBarClick() }
             .testTag("mini_player_bar"),
         colors = CardDefaults.cardColors(
-            containerColor = cardBg
+            containerColor = SpotifyCardHover
         ),
-        border = BorderStroke(1.dp, themeColor.copy(alpha = 0.25f)),
-        shape = RoundedCornerShape(24.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 10.dp)
+        shape = RoundedCornerShape(8.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
     ) {
         Column {
-            // Linear Progress Line
+            // Linear Progress Line (Spotify Green)
             LinearProgressIndicator(
                 progress = { progress },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(3.dp),
-                color = themeColor,
-                trackColor = SliderTrackColor
+                    .height(2.5.dp),
+                color = SpotifyGreen,
+                trackColor = Color(0xFF3E3E3E)
             )
 
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Album Art
                 Box(
                     modifier = Modifier
-                        .size(44.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(if (isMidnightDark) Color(0xFF161F38) else IceWhiteCard),
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .background(Color(0xFF121212)),
                     contentAlignment = Alignment.Center
                 ) {
                     if (song.demoDrawableRes != null) {
@@ -129,7 +119,7 @@ fun MiniPlayerBar(
                         Icon(
                             imageVector = Icons.Default.MusicNote,
                             contentDescription = null,
-                            tint = themeColor
+                            tint = SpotifyGreen
                         )
                     }
                 }
@@ -146,14 +136,14 @@ fun MiniPlayerBar(
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp
                         ),
-                        color = titleColor,
+                        color = SpotifyTextPrimary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                     Text(
                         text = song.artist,
                         style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                        color = artistColor,
+                        color = SpotifyTextSecondary,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
@@ -166,15 +156,15 @@ fun MiniPlayerBar(
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
-                            color = themeColor,
+                            color = SpotifyGreen,
                             strokeWidth = 2.5.dp,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     } else {
                         Icon(
                             imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
                             contentDescription = if (isPlaying) "Pause" else "Play",
-                            tint = themeColor,
+                            tint = SpotifyTextPrimary,
                             modifier = Modifier.size(28.dp)
                         )
                     }
@@ -187,7 +177,7 @@ fun MiniPlayerBar(
                     Icon(
                         imageVector = Icons.Default.SkipNext,
                         contentDescription = "Next",
-                        tint = titleColor,
+                        tint = SpotifyTextPrimary,
                         modifier = Modifier.size(28.dp)
                     )
                 }

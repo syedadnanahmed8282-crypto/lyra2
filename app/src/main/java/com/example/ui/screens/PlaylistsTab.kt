@@ -15,10 +15,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.QueueMusic
@@ -34,22 +34,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.graphics.Color
 import com.example.data.db.entity.PlaylistEntity
 import com.example.data.db.entity.PlaylistItemEntity
 import com.example.model.Song
-import com.example.ui.theme.DarkPurpleSurface
-import com.example.ui.theme.DeepObsidian
-import com.example.ui.theme.ElectricCyan
-import com.example.ui.theme.NeonPink
-import com.example.ui.theme.SurfaceCard
-import com.example.ui.theme.TextPrimary
-import com.example.ui.theme.TextSecondary
-import com.example.ui.theme.VibrantPurple
+import com.example.ui.theme.SpotifyCardBg
+import com.example.ui.theme.SpotifyGreen
+import com.example.ui.theme.SpotifyTextPrimary
+import com.example.ui.theme.SpotifyTextSecondary
 
 @Composable
 fun PlaylistsTab(
@@ -59,16 +55,10 @@ fun PlaylistsTab(
     onCreatePlaylistClick: () -> Unit,
     onPlaylistClick: (String, List<Song>) -> Unit,
     onDeletePlaylist: (Long) -> Unit,
-    themeColor: Color = VibrantPurple,
+    themeColor: Color = SpotifyGreen,
     modifier: Modifier = Modifier
 ) {
     val favoriteSongs = allSongs.filter { it.isFavorite }
-    val isMidnightDark = themeColor == Color(0xFF0A1128)
-    val cardBg = if (isMidnightDark) Color.Black else SurfaceCard
-    val playlistCardBg = if (isMidnightDark) Color.Black else DarkPurpleSurface
-    val primaryTextColor = if (isMidnightDark) Color.White else TextPrimary
-    val secondaryTextColor = if (isMidnightDark) Color(0xFFA0A5B5) else TextSecondary
-    val buttonColor = if (isMidnightDark) themeColor else ElectricCyan
 
     LazyColumn(
         modifier = modifier
@@ -81,16 +71,16 @@ fun PlaylistsTab(
                 onClick = onCreatePlaylistClick,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(50.dp)
+                    .height(48.dp)
                     .testTag("create_playlist_btn"),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = buttonColor)
+                shape = RoundedCornerShape(24.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = SpotifyGreen)
             ) {
-                Icon(Icons.Default.Add, contentDescription = null, tint = Color.White)
+                Icon(Icons.Default.Add, contentDescription = null, tint = Color.Black)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Create New Playlist",
-                    color = Color.White,
+                    text = "Create Playlist",
+                    color = Color.Black,
                     fontWeight = FontWeight.Bold,
                     fontSize = 15.sp
                 )
@@ -102,49 +92,57 @@ fun PlaylistsTab(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable { onPlaylistClick("Favorites", favoriteSongs) }
                     .testTag("favorites_playlist_card"),
-                colors = CardDefaults.cardColors(containerColor = cardBg)
+                colors = CardDefaults.cardColors(containerColor = SpotifyCardBg)
             ) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(NeonPink.copy(alpha = 0.2f)),
+                            .size(50.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF282828)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.Favorite,
                             contentDescription = "Favorites",
-                            tint = NeonPink,
+                            tint = SpotifyGreen,
                             modifier = Modifier.size(26.dp)
                         )
                     }
 
-                    Spacer(modifier = Modifier.width(16.dp))
+                    Spacer(modifier = Modifier.width(14.dp))
 
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "Favorites",
+                            text = "Liked Songs",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 16.sp
                             ),
-                            color = primaryTextColor
+                            color = SpotifyTextPrimary
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "${favoriteSongs.size} favorite tracks",
+                            text = "Playlist • ${favoriteSongs.size} songs",
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                            color = secondaryTextColor
+                            color = SpotifyTextSecondary
                         )
                     }
+
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = null,
+                        tint = SpotifyTextSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
 
@@ -156,8 +154,12 @@ fun PlaylistsTab(
             val playlistSongs = if (pSongIds.isNotEmpty()) {
                 allSongs.filter { pSongIds.contains(it.id) }
             } else {
-                val matched = allSongs.filter { it.folderName.equals(playlist.name, ignoreCase = true) || it.album.equals(playlist.name, ignoreCase = true) }
-                if (matched.isNotEmpty()) matched else allSongs
+                allSongs.filter {
+                    it.folderName.equals(playlist.name, ignoreCase = true) ||
+                            it.album.equals(playlist.name, ignoreCase = true) ||
+                            it.artist.equals(playlist.name, ignoreCase = true) ||
+                            it.title.contains(playlist.name, ignoreCase = true)
+                }
             }
             val countDisplay = if (playlistSongs.isNotEmpty()) playlistSongs.size else playlist.songCount
 
@@ -165,10 +167,10 @@ fun PlaylistsTab(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(12.dp))
                     .clickable { onPlaylistClick(playlist.name, playlistSongs) }
                     .testTag("playlist_item_${playlist.id}"),
-                colors = CardDefaults.cardColors(containerColor = playlistCardBg)
+                colors = CardDefaults.cardColors(containerColor = SpotifyCardBg)
             ) {
                 Row(
                     modifier = Modifier
@@ -178,15 +180,16 @@ fun PlaylistsTab(
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(46.dp)
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(buttonColor.copy(alpha = 0.15f)),
+                            .size(50.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF282828)),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Default.QueueMusic,
                             contentDescription = null,
-                            tint = buttonColor
+                            tint = SpotifyGreen,
+                            modifier = Modifier.size(26.dp)
                         )
                     }
 
@@ -199,12 +202,13 @@ fun PlaylistsTab(
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 15.sp
                             ),
-                            color = primaryTextColor
+                            color = SpotifyTextPrimary
                         )
+                        Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "$countDisplay songs",
+                            text = "Playlist • $countDisplay songs",
                             style = MaterialTheme.typography.bodyMedium.copy(fontSize = 12.sp),
-                            color = secondaryTextColor
+                            color = SpotifyTextSecondary
                         )
                     }
 
@@ -215,7 +219,7 @@ fun PlaylistsTab(
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = "Delete Playlist",
-                            tint = secondaryTextColor.copy(alpha = 0.6f)
+                            tint = SpotifyTextSecondary
                         )
                     }
                 }

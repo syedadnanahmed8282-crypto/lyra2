@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
@@ -46,6 +47,9 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -109,6 +113,7 @@ private fun getFileNameFromUri(context: Context, uri: Uri): String? {
 
 fun OnlineSong.toSong(): Song {
     val numericId = id.hashCode().toLong().let { if (it < 0) -it else it }
+    val resolvedFolder = if (album.isNotBlank() && album != "Unknown Album") album else "Online ($extensionName)"
     return Song(
         id = numericId,
         title = title,
@@ -119,7 +124,7 @@ fun OnlineSong.toSong(): Song {
         path = streamUrl,
         contentUri = Uri.parse(streamUrl),
         albumArtUri = if (artworkUrl.isNotBlank()) Uri.parse(artworkUrl) else null,
-        folderName = "Online ($extensionName)",
+        folderName = resolvedFolder,
         folderPath = "Online Extensions"
     )
 }
@@ -830,7 +835,7 @@ private fun PluginCard(
 }
 
 @Composable
-private fun InstallPluginDialog(
+fun InstallPluginDialog(
     themeColor: Color,
     onDismiss: () -> Unit,
     onPickLocalFile: () -> Unit,
@@ -1129,3 +1134,91 @@ fun ExtensionAccountDialog(
         }
     )
 }
+
+@Composable
+fun ManageExtensionsDialog(
+    plugins: List<ExtensionPlugin>,
+    searchResults: List<OnlineSong>,
+    isSearching: Boolean,
+    accounts: Map<String, ExtensionAccount> = emptyMap(),
+    themeColor: Color,
+    onDismiss: () -> Unit,
+    onSearchQuery: (String, String?) -> Unit,
+    onSaveAccount: (String, String, String, String) -> Unit = { _, _, _, _ -> },
+    onLogoutAccount: (String) -> Unit = {},
+    onInstallFromUrl: (String, (Boolean, String?) -> Unit) -> Unit,
+    onInstallFromCode: (String, String, (Boolean, String?) -> Unit) -> Unit,
+    onInstallFromLocalUri: (Uri, String?, (Boolean, String?) -> Unit) -> Unit,
+    onTogglePlugin: (String) -> Unit,
+    onDeletePlugin: (String) -> Unit,
+    onPlayOnlineSong: (Song) -> Unit
+) {
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 28.dp),
+            color = com.example.ui.theme.SpotifyDarkCanvas
+        ) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Extension,
+                            contentDescription = "Extensions",
+                            tint = themeColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Text(
+                            text = "Extensions & Plugin Sources",
+                            style = MaterialTheme.typography.titleLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            ),
+                            color = com.example.ui.theme.SpotifyTextPrimary
+                        )
+                    }
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = com.example.ui.theme.SpotifyTextPrimary
+                        )
+                    }
+                }
+
+                HorizontalDivider(color = Color(0xFF282828))
+
+                Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                    ExtensionsTab(
+                        plugins = plugins,
+                        searchResults = searchResults,
+                        isSearching = isSearching,
+                        accounts = accounts,
+                        themeColor = themeColor,
+                        onSearchQuery = onSearchQuery,
+                        onSaveAccount = onSaveAccount,
+                        onLogoutAccount = onLogoutAccount,
+                        onInstallFromUrl = onInstallFromUrl,
+                        onInstallFromCode = onInstallFromCode,
+                        onInstallFromLocalUri = onInstallFromLocalUri,
+                        onTogglePlugin = onTogglePlugin,
+                        onDeletePlugin = onDeletePlugin,
+                        onPlayOnlineSong = onPlayOnlineSong
+                    )
+                }
+            }
+        }
+    }
+}
+
