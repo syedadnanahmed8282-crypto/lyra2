@@ -150,8 +150,6 @@ fun MainScreen(
     val isSearchingOnline by mainViewModel.isSearchingOnline.collectAsState()
 
     var showAudioSettingsDialog by remember { mutableStateOf(false) }
-    var showInstallDialogBySettings by remember { mutableStateOf(false) }
-    var showAccountDialogBySettings by remember { mutableStateOf(false) }
     var showManageExtensionsDialogBySettings by remember { mutableStateOf(false) }
 
     val context = LocalContext.current
@@ -293,9 +291,9 @@ fun MainScreen(
                                 }
                                 item {
                                     FilterChip(
-                                        selected = selectedExtensionMode == "itunes_music_preset",
-                                        onClick = { mainViewModel.setSelectedExtensionMode("itunes_music_preset") },
-                                        label = { Text("🍎 iTunes Hits", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
+                                        selected = selectedExtensionMode == "youtube_music_preset",
+                                        onClick = { mainViewModel.setSelectedExtensionMode("youtube_music_preset") },
+                                        label = { Text("🎵 YouTube Music", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
                                         colors = FilterChipDefaults.filterChipColors(
                                             selectedContainerColor = com.example.ui.theme.SpotifyGreen,
                                             selectedLabelColor = Color.Black,
@@ -303,21 +301,6 @@ fun MainScreen(
                                             labelColor = com.example.ui.theme.SpotifyTextPrimary
                                         )
                                     )
-                                }
-                                plugins.filter { it.isEnabled }.forEach { plugin ->
-                                    item {
-                                        FilterChip(
-                                            selected = selectedExtensionMode == plugin.id,
-                                            onClick = { mainViewModel.setSelectedExtensionMode(plugin.id) },
-                                            label = { Text("✨ ${plugin.name}", fontSize = 12.sp, fontWeight = FontWeight.SemiBold) },
-                                            colors = FilterChipDefaults.filterChipColors(
-                                                selectedContainerColor = com.example.ui.theme.SpotifyGreen,
-                                                selectedLabelColor = Color.Black,
-                                                containerColor = com.example.ui.theme.SpotifyCardBg,
-                                                labelColor = com.example.ui.theme.SpotifyTextPrimary
-                                            )
-                                        )
-                                    }
                                 }
                             }
 
@@ -792,33 +775,9 @@ fun MainScreen(
                                 HorizontalDivider(color = Color(0xFF282828))
 
                                 ProfileOptionRow(
-                                    icon = Icons.Default.Add,
-                                    title = "Add New Extension / Plugin",
-                                    subtitle = "Import .eapk file, script URL, or JS code",
-                                    onClick = {
-                                        showAudioSettingsDialog = false
-                                        showInstallDialogBySettings = true
-                                    }
-                                )
-
-                                HorizontalDivider(color = Color(0xFF282828))
-
-                                ProfileOptionRow(
-                                    icon = Icons.Default.AccountCircle,
-                                    title = "Extension Accounts & Sync",
-                                    subtitle = "Connect YouTube, Spotify or custom channels",
-                                    onClick = {
-                                        showAudioSettingsDialog = false
-                                        showAccountDialogBySettings = true
-                                    }
-                                )
-
-                                HorizontalDivider(color = Color(0xFF282828))
-
-                                ProfileOptionRow(
                                     icon = Icons.Default.Extension,
-                                    title = "Extensions & Active Sources",
-                                    subtitle = "Manage installed plugins and switch active source",
+                                    title = "YouTube Music Extension",
+                                    subtitle = "Active YouTube Music stream search and player",
                                     onClick = {
                                         showAudioSettingsDialog = false
                                         showManageExtensionsDialogBySettings = true
@@ -846,55 +805,6 @@ fun MainScreen(
                     }
                 },
                 containerColor = Color(0xFF282828)
-            )
-        }
-
-        // Install Extension Dialog opened from Audio & Settings
-        if (showInstallDialogBySettings) {
-            InstallPluginDialog(
-                themeColor = themeColor,
-                onDismiss = { showInstallDialogBySettings = false },
-                onPickLocalFile = {
-                    filePickerLauncher.launch("*/*")
-                    showInstallDialogBySettings = false
-                },
-                onInstallUrl = { url, callback ->
-                    mainViewModel.installPluginFromUrl(url) { ok, err ->
-                        callback(ok, err)
-                        if (ok) {
-                            showInstallDialogBySettings = false
-                            Toast.makeText(context, "Extension installed successfully!", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                },
-                onInstallCode = { code, name, callback ->
-                    mainViewModel.installPluginFromCode(code, name) { ok, err ->
-                        callback(ok, err)
-                        if (ok) {
-                            showInstallDialogBySettings = false
-                            Toast.makeText(context, "Extension created successfully!", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            )
-        }
-
-        // Extension Account Dialog opened from Audio & Settings
-        if (showAccountDialogBySettings) {
-            ExtensionAccountDialog(
-                plugins = plugins,
-                currentAccounts = extensionAccounts,
-                initialSelectedExtId = selectedExtensionMode,
-                themeColor = themeColor,
-                onDismiss = { showAccountDialogBySettings = false },
-                onSaveAccount = { extId, username, channel, token ->
-                    mainViewModel.saveExtensionAccount(extId, username, channel, token)
-                    Toast.makeText(context, "Account saved successfully!", Toast.LENGTH_SHORT).show()
-                },
-                onLogoutAccount = { extId ->
-                    mainViewModel.logoutExtensionAccount(extId)
-                    Toast.makeText(context, "Logged out!", Toast.LENGTH_SHORT).show()
-                }
             )
         }
 

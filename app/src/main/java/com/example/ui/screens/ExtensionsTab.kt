@@ -139,41 +139,19 @@ fun ExtensionsTab(
     onSearchQuery: (String, String?) -> Unit,
     onSaveAccount: (String, String, String, String) -> Unit = { _, _, _, _ -> },
     onLogoutAccount: (String) -> Unit = {},
-    onInstallFromUrl: (String, (Boolean, String?) -> Unit) -> Unit,
-    onInstallFromCode: (String, String, (Boolean, String?) -> Unit) -> Unit,
-    onInstallFromLocalUri: (Uri, String?, (Boolean, String?) -> Unit) -> Unit,
-    onTogglePlugin: (String) -> Unit,
-    onDeletePlugin: (String) -> Unit,
+    onInstallFromUrl: (String, (Boolean, String?) -> Unit) -> Unit = { _, _ -> },
+    onInstallFromCode: (String, String, (Boolean, String?) -> Unit) -> Unit = { _, _, _ -> },
+    onInstallFromLocalUri: (Uri, String?, (Boolean, String?) -> Unit) -> Unit = { _, _, _ -> },
+    onTogglePlugin: (String) -> Unit = {},
+    onDeletePlugin: (String) -> Unit = {},
     onPlayOnlineSong: (Song) -> Unit
 ) {
-    val context = LocalContext.current
-    var subTabSelected by remember { mutableStateOf(0) } // 0: Search Online, 1: Installed Plugins
     var searchQuery by remember { mutableStateOf("") }
-    var selectedExtensionId by remember { mutableStateOf<String?>(null) }
-
-    var showInstallDialog by remember { mutableStateOf(false) }
-    var showAccountDialog by remember { mutableStateOf(false) }
-
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val fileName = getFileNameFromUri(context, uri)
-            onInstallFromLocalUri(uri, fileName) { success, error ->
-                if (success) {
-                    subTabSelected = 1
-                    Toast.makeText(context, "Extension imported successfully!", Toast.LENGTH_SHORT).show()
-                } else {
-                    Toast.makeText(context, "Import failed: $error", Toast.LENGTH_LONG).show()
-                }
-            }
-        }
-    }
 
     // Auto-search initially
     LaunchedEffect(Unit) {
         if (searchResults.isEmpty()) {
-            onSearchQuery("", null)
+            onSearchQuery("", "youtube_music_preset")
         }
     }
 
@@ -183,217 +161,40 @@ fun ExtensionsTab(
             .padding(horizontal = 16.dp, vertical = 8.dp)
             .testTag("extensions_tab")
     ) {
-        // Mode Switcher Bar
-        TabRow(
-            selectedTabIndex = subTabSelected,
-            containerColor = Color.Transparent,
-            contentColor = themeColor,
-            indicator = { tabPositions ->
-                if (subTabSelected < tabPositions.size) {
-                    TabRowDefaults.SecondaryIndicator(
-                        Modifier.tabIndicatorOffset(tabPositions[subTabSelected]),
-                        color = themeColor
-                    )
-                }
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp)
-        ) {
-            Tab(
-                selected = subTabSelected == 0,
-                onClick = { subTabSelected = 0 },
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Search Streams", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    }
-                }
-            )
-            Tab(
-                selected = subTabSelected == 1,
-                onClick = { subTabSelected = 1 },
-                text = {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Extension, contentDescription = null, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text("Plugins (${plugins.size})", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                    }
-                }
-            )
-        }
-
-        when (subTabSelected) {
-            0 -> SearchStreamsView(
-                plugins = plugins,
-                searchQuery = searchQuery,
-                selectedExtensionId = selectedExtensionId,
-                accounts = accounts,
-                onQueryChange = { searchQuery = it },
-                onExtensionSelect = { extId ->
-                    selectedExtensionId = extId
-                    onSearchQuery(searchQuery, extId)
-                },
-                onOpenAccountLogin = { showAccountDialog = true },
-                onSearchClick = { onSearchQuery(searchQuery, selectedExtensionId) },
-                searchResults = searchResults,
-                isSearching = isSearching,
-                activePluginCount = plugins.count { it.isEnabled },
-                themeColor = themeColor,
-                onPlaySong = onPlayOnlineSong
-            )
-            1 -> InstalledPluginsView(
-                plugins = plugins,
-                accounts = accounts,
-                themeColor = themeColor,
-                onPickLocalFile = { filePickerLauncher.launch("*/*") },
-                onInstallClick = { showInstallDialog = true },
-                onOpenAccountLogin = { showAccountDialog = true },
-                onTogglePlugin = onTogglePlugin,
-                onDeletePlugin = onDeletePlugin
-            )
-        }
-    }
-
-    if (showAccountDialog) {
-        ExtensionAccountDialog(
-            plugins = plugins,
-            currentAccounts = accounts,
-            initialSelectedExtId = selectedExtensionId,
+        SearchStreamsView(
+            searchQuery = searchQuery,
+            onQueryChange = { searchQuery = it },
+            onSearchClick = { onSearchQuery(searchQuery, "youtube_music_preset") },
+            searchResults = searchResults,
+            isSearching = isSearching,
             themeColor = themeColor,
-            onDismiss = { showAccountDialog = false },
-            onSaveAccount = { extId, user, channel, token ->
-                onSaveAccount(extId, user, channel, token)
-                Toast.makeText(context, "Account connected! Loading saved music...", Toast.LENGTH_SHORT).show()
-            },
-            onLogoutAccount = { extId ->
-                onLogoutAccount(extId)
-                Toast.makeText(context, "Logged out from account", Toast.LENGTH_SHORT).show()
-            }
-        )
-    }
-
-    if (showInstallDialog) {
-        InstallPluginDialog(
-            themeColor = themeColor,
-            onDismiss = { showInstallDialog = false },
-            onPickLocalFile = {
-                showInstallDialog = false
-                filePickerLauncher.launch("*/*")
-            },
-            onInstallUrl = { url, callback ->
-                onInstallFromUrl(url) { success, error ->
-                    callback(success, error)
-                    if (success) {
-                        subTabSelected = 1
-                        Toast.makeText(context, "Plugin installed successfully!", Toast.LENGTH_SHORT).show()
-                        showInstallDialog = false
-                    } else {
-                        Toast.makeText(context, "Failed: $error", Toast.LENGTH_LONG).show()
-                    }
-                }
-            },
-            onInstallCode = { code, name, callback ->
-                onInstallFromCode(code, name) { success, error ->
-                    callback(success, error)
-                    if (success) {
-                        subTabSelected = 1
-                        Toast.makeText(context, "Custom JS Plugin installed!", Toast.LENGTH_SHORT).show()
-                        showInstallDialog = false
-                    } else {
-                        Toast.makeText(context, "Failed: $error", Toast.LENGTH_LONG).show()
-                    }
-                }
-            }
+            onPlaySong = onPlayOnlineSong
         )
     }
 }
 
 @Composable
 private fun SearchStreamsView(
-    plugins: List<ExtensionPlugin>,
     searchQuery: String,
-    selectedExtensionId: String?,
-    accounts: Map<String, ExtensionAccount> = emptyMap(),
     onQueryChange: (String) -> Unit,
-    onExtensionSelect: (String?) -> Unit,
-    onOpenAccountLogin: () -> Unit = {},
     onSearchClick: () -> Unit,
     searchResults: List<OnlineSong>,
     isSearching: Boolean,
-    activePluginCount: Int,
     themeColor: Color,
     onPlaySong: (Song) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
-        // Account Status & Login Banner
-        val currentAccount = selectedExtensionId?.let { accounts[it] } ?: accounts.values.firstOrNull { it.isLoggedIn }
-        Card(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp)
-                .clickable { onOpenAccountLogin() },
-            shape = RoundedCornerShape(14.dp),
-            colors = CardDefaults.cardColors(containerColor = themeColor.copy(alpha = 0.12f))
-        ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Default.AccountCircle,
-                    contentDescription = "Account Login",
-                    tint = themeColor,
-                    modifier = Modifier.size(24.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    if (currentAccount != null && currentAccount.isLoggedIn) {
-                        Text(
-                            text = "Connected: ${currentAccount.username.ifBlank { "User Account" }}",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = if (currentAccount.channelOrPlaylistId.isNotBlank()) "Channel/ID: ${currentAccount.channelOrPlaylistId}" else "Account recommendations active",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    } else {
-                        Text(
-                            text = "Extension Account Login",
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Text(
-                            text = "Connect YouTube, Jamendo or iTunes for saved music & personal suggestions",
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-                TextButton(onClick = onOpenAccountLogin) {
-                    Text(if (currentAccount != null) "Manage" else "Login", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = themeColor)
-                }
-            }
-        }
-
         // Search bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(bottom = 6.dp),
+                .padding(bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             OutlinedTextField(
                 value = searchQuery,
                 onValueChange = onQueryChange,
-                placeholder = { Text("Search online streams...", fontSize = 14.sp, color = TextDarkSecondary) },
+                placeholder = { Text("Search YouTube Music streams...", fontSize = 14.sp, color = TextDarkSecondary) },
                 singleLine = true,
                 modifier = Modifier
                     .weight(1f)
@@ -419,62 +220,7 @@ private fun SearchStreamsView(
             }
         }
 
-        // Extension Selection Chips Row
-        LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            item {
-                FilterChip(
-                    selected = selectedExtensionId == null || selectedExtensionId == "ALL",
-                    onClick = { onExtensionSelect(null) },
-                    label = { Text("🌐 All Extensions", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = themeColor,
-                        selectedLabelColor = Color.White
-                    )
-                )
-            }
-            item {
-                FilterChip(
-                    selected = selectedExtensionId == "itunes_music_preset",
-                    onClick = { onExtensionSelect("itunes_music_preset") },
-                    label = { Text("🍎 iTunes Hits", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = themeColor,
-                        selectedLabelColor = Color.White
-                    )
-                )
-            }
-            item {
-                FilterChip(
-                    selected = selectedExtensionId == "jamendo_music_preset",
-                    onClick = { onExtensionSelect("jamendo_music_preset") },
-                    label = { Text("🎸 Jamendo Open", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                    colors = FilterChipDefaults.filterChipColors(
-                        selectedContainerColor = themeColor,
-                        selectedLabelColor = Color.White
-                    )
-                )
-            }
-            plugins.filter { it.isEnabled }.forEach { plugin ->
-                item {
-                    FilterChip(
-                        selected = selectedExtensionId == plugin.id,
-                        onClick = { onExtensionSelect(plugin.id) },
-                        label = { Text("✨ ${plugin.name}", fontSize = 11.sp, fontWeight = FontWeight.SemiBold) },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = themeColor,
-                            selectedLabelColor = Color.White
-                        )
-                    )
-                }
-            }
-        }
-
-        // Active extensions indicator
+        // Active extension indicator
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -483,10 +229,10 @@ private fun SearchStreamsView(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = "$activePluginCount Active Extension(s)",
+                text = "🎵 Powered by YouTube Music Extension",
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Medium,
-                color = TextDarkSecondary
+                fontWeight = FontWeight.Bold,
+                color = themeColor
             )
             if (isSearching) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -514,8 +260,8 @@ private fun SearchStreamsView(
                         tint = themeColor.copy(alpha = 0.5f)
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text("No online stream results found", fontWeight = FontWeight.Medium, color = TextDarkSecondary)
-                    Text("Try searching for songs or enable plugins in the Plugins tab", fontSize = 12.sp, color = TextDarkSecondary)
+                    Text("No YouTube Music streams found", fontWeight = FontWeight.Medium, color = TextDarkSecondary)
+                    Text("Type a song name or artist above to search and play", fontSize = 12.sp, color = TextDarkSecondary)
                 }
             }
         } else {

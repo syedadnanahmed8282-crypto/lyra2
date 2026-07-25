@@ -169,7 +169,7 @@ fun ProfileTab(
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
                                 text = if (loggedInPlatforms.isNotEmpty()) {
-                                    "${loggedInPlatforms.size} accounts connected (YouTube/Spotify/iTunes)"
+                                    "${loggedInPlatforms.size} account connected"
                                 } else {
                                     "$songCount local tracks • Premium Member"
                                 },
@@ -233,16 +233,12 @@ fun ProfileTab(
             }
         }
 
-        // List of Default and Installed Extensions
+        // List of Default Extensions
         item {
             val defaultExtensions = listOf(
                 ExtensionItemUI("ALL", "All Extensions & Storage", "Combined search across local files & online extensions", Icons.Default.Cloud),
                 ExtensionItemUI("LOCAL", "Local Device Storage", "Songs and MP3 audio stored on your phone storage", Icons.Default.Smartphone),
-                ExtensionItemUI("youtube_music_preset", "YouTube Music Extension", "Playlists, uploaded music, videos & suggestions", Icons.Default.Extension),
-                ExtensionItemUI("spotify_music_preset", "Spotify Music Extension", "Spotify library, top tracks & recommendations", Icons.Default.Extension),
-                ExtensionItemUI("itunes_music_preset", "iTunes Apple Music Extension", "Apple Music top charts & album previews", Icons.Default.Extension),
-                ExtensionItemUI("ncs_official_preset", "NoCopyrightSounds (NCS)", "Free copyright-free EDM and electronic tracks", Icons.Default.MusicNote),
-                ExtensionItemUI("radio_browser_preset", "Radio Browser Extension", "Live streaming radio stations around the world", Icons.Default.Radio)
+                ExtensionItemUI("youtube_music_preset", "YouTube Music Extension", "Playlists, stream audio, videos & suggestions", Icons.Default.Extension)
             )
 
             val extraPluginItems = installedPlugins.filter { plugin ->
